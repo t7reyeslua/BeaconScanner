@@ -23,6 +23,7 @@ public class MainActivity extends ActionBarActivity {
     private BeaconEventListener beaconSightingListener;
     private BeaconManager beaconManager;
     private ExpandableListView mExpandableListBeacons;
+    private ExpandableListAdapterBeacons mExpandableListAdapterBeacons;
     private ArrayList<BeaconSighting> groupItem = new ArrayList<>();
     private ArrayList<Object> childItem = new ArrayList<>();
     private FloatingActionButton fab;
@@ -50,6 +51,8 @@ public class MainActivity extends ActionBarActivity {
         beaconManager = new BeaconManager();
 
     }
+
+
 
     private void configureFab(){
 
@@ -105,13 +108,27 @@ public class MainActivity extends ActionBarActivity {
                 expanded.add(false);
             }
         }
-        mExpandableListBeacons.setAdapter(new ExpandableListAdapterBeacons(this, groupItem, childItem));
-        mExpandableListBeacons.setOnGroupClickListener(new ExpDrawerGroupClickListener());
+
+        int index = mExpandableListBeacons.getFirstVisiblePosition();
+        View v = mExpandableListBeacons.getChildAt(0);
+        int top = (v == null) ? 0 : v.getTop();
+
+        if (mExpandableListBeacons.getAdapter() == null) {
+            mExpandableListAdapterBeacons = new ExpandableListAdapterBeacons(this, groupItem, childItem);
+            mExpandableListBeacons.setAdapter(mExpandableListAdapterBeacons);
+            mExpandableListBeacons.setOnGroupClickListener(new ExpDrawerGroupClickListener());
+        } else {
+            mExpandableListAdapterBeacons.groupItem = groupItem;
+            mExpandableListAdapterBeacons.Childtem = childItem;
+            mExpandableListAdapterBeacons.notifyDataSetChanged();
+        }
         for ( int i = 0; i < groupItem.size(); i++ ) {
             if (expanded.get(i)) {
                 mExpandableListBeacons.expandGroup(i);
             }
         }
+        mExpandableListBeacons.setSelectionFromTop(index, top);
+
     }
 
     private class ExpDrawerGroupClickListener implements ExpandableListView.OnGroupClickListener {

@@ -36,8 +36,9 @@ public class ExpandableListAdapterBeacons extends BaseExpandableListAdapter {
 
     public ExpandableListAdapterBeacons(Context context, ArrayList<BeaconSighting> grList,
             ArrayList<Object> childItem) {
+        super();
         this.context = context;
-        groupItem = grList;
+        this.groupItem = grList;
         this.Childtem = childItem;
     }
 
@@ -74,9 +75,14 @@ public class ExpandableListAdapterBeacons extends BaseExpandableListAdapter {
 
         Beacon beacon = tempChild.get(childPosition).getBeacon();
         Date date = new Date(tempChild.get(childPosition).getTimeInMillis());
+        Double rssi = Double.valueOf(tempChild.get(childPosition).getRSSI());
+        Double accuracy = calculateAccuracy(-62, rssi);
+        String distance = String.format("%.2f", accuracy);
+
 
         twID.setText(beacon.getIdentifier());
         twBatt.setText(String.valueOf(beacon.getBatteryLevel()));
+        twBatt.setText(distance + "m");
         twTemp.setText(String.valueOf((beacon.getTemperature() - 32)*5/9) + "°C");
         SimpleDateFormat dt = new SimpleDateFormat("hh:mm:ss");
         twDate.setText(dt.format(date));
@@ -176,4 +182,18 @@ public class ExpandableListAdapterBeacons extends BaseExpandableListAdapter {
         return true;
     }
 
+    private double calculateAccuracy(int txPower, Double rssi) {
+        if (rssi == 0) {
+            return -1.0; // if we cannot determine accuracy, return -1.
+        }
+
+        double ratio = rssi*1.0/txPower;
+        if (ratio < 1.0) {
+            return Math.pow(ratio,10);
+        }
+        else {
+            double accuracy =  (0.89976)*Math.pow(ratio,7.7095) + 0.111;
+            return accuracy;
+        }
+    }
 }
