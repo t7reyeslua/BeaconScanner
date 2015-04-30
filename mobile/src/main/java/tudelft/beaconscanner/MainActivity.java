@@ -15,6 +15,8 @@ import android.view.View;
 import android.widget.ExpandableListView;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 
 import tudelft.beaconscanner.ui_helpers.ExpandableListAdapterBeacons;
 
@@ -113,6 +115,7 @@ public class MainActivity extends ActionBarActivity {
         View v = mExpandableListBeacons.getChildAt(0);
         int top = (v == null) ? 0 : v.getTop();
 
+        sortGimbalByRSSI();
         if (mExpandableListBeacons.getAdapter() == null) {
             mExpandableListAdapterBeacons = new ExpandableListAdapterBeacons(this, groupItem, childItem);
             mExpandableListBeacons.setAdapter(mExpandableListAdapterBeacons);
@@ -130,6 +133,48 @@ public class MainActivity extends ActionBarActivity {
         mExpandableListBeacons.setSelectionFromTop(index, top);
 
     }
+
+    private void sortGimbalByRSSI(){
+        Collections.sort(groupItem, new Comparator<BeaconSighting>() {
+            @Override
+            public int compare(BeaconSighting item1, BeaconSighting item2) {
+
+                return item2.getRSSI().compareTo(item1.getRSSI());
+            }
+        });
+
+        Collections.sort(childItem, new Comparator<Object>() {
+            @Override
+            public int compare(Object item1, Object item2) {
+                BeaconSighting i1 = ((ArrayList<BeaconSighting>)item1).get(0);
+                BeaconSighting i2 = ((ArrayList<BeaconSighting>)item2).get(0);
+
+                return i2.getRSSI().compareTo(i1.getRSSI());
+            }
+        });
+    }
+
+
+    private void sortGimbalByName(){
+        Collections.sort(groupItem, new Comparator<BeaconSighting>() {
+            @Override
+            public int compare(BeaconSighting item1, BeaconSighting item2) {
+
+                return item1.getBeacon().getName().compareTo(item2.getBeacon().getName());
+            }
+        });
+
+        Collections.sort(childItem, new Comparator<Object>() {
+            @Override
+            public int compare(Object item1, Object item2) {
+                BeaconSighting i1 = ((ArrayList<BeaconSighting>)item1).get(0);
+                BeaconSighting i2 = ((ArrayList<BeaconSighting>)item2).get(0);
+
+                return i1.getBeacon().getName().compareTo(i2.getBeacon().getName());
+            }
+        });
+    }
+
 
     private class ExpDrawerGroupClickListener implements ExpandableListView.OnGroupClickListener {
         @Override
