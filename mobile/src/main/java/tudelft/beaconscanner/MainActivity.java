@@ -6,8 +6,15 @@ import com.gimbal.android.BeaconSighting;
 import com.gimbal.android.Gimbal;
 import com.github.clans.fab.FloatingActionButton;
 
+import org.altbeacon.beacon.Beacon;
+import org.altbeacon.beacon.BeaconConsumer;
+import org.altbeacon.beacon.BeaconParser;
+import org.altbeacon.beacon.RangeNotifier;
+import org.altbeacon.beacon.Region;
+
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.os.RemoteException;
 import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
@@ -22,6 +29,7 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 
@@ -29,16 +37,23 @@ import tudelft.beaconscanner.enums.SettingsConstants;
 import tudelft.beaconscanner.ui_helpers.ExpandableListAdapterBeacons;
 
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends ActionBarActivity implements BeaconConsumer{
+    protected static final String TAG_ALTBEACON = "AltBeacon";
+    protected static final String TAG_GIMBAL = "Gimbal";
+
     private BeaconEventListener beaconSightingListener;
-    private BeaconManager beaconManager;
+    private BeaconManager beaconManagerGimbal;
+    private org.altbeacon.beacon.BeaconManager beaconManagerAlt;
+
     private ExpandableListView mExpandableListBeacons;
     private ExpandableListAdapterBeacons mExpandableListAdapterBeacons;
     private ArrayList<BeaconSighting> groupItem = new ArrayList<>();
     private ArrayList<Object> childItem = new ArrayList<>();
+
     private FloatingActionButton fab;
     private TextView mTextViewScanningMode;
     private TextView mTextViewBeaconsFound;
+
     private Boolean scanning = false;
 
     @Override
@@ -46,25 +61,65 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Gimbal.setApiKey(this.getApplication(), SettingsConstants.GIMBAL_API_KEY);
+        configureGUIelements();
 
+        setUpGimbal();
+        setUpAltBeacon();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        beaconManagerAlt.unbind(this);
+    }
+
+    private void configureGUIelements(){
         mExpandableListBeacons = (ExpandableListView) findViewById(R.id.exp_list);
         mTextViewScanningMode  = (TextView) findViewById(R.id.beaconMode);
         mTextViewBeaconsFound  = (TextView) findViewById(R.id.beaconNum);
         fab = (FloatingActionButton) findViewById(R.id.fab);
         configureFab();
         updateHeader();
+    }
 
+    private void setUpGimbal(){
+        Gimbal.setApiKey(this.getApplication(), SettingsConstants.GIMBAL_API_KEY);
         beaconSightingListener = new BeaconEventListener() {
             @Override
             public void onBeaconSighting(BeaconSighting sighting) {
-                Log.i("INFO", sighting.toString());
+                BeaconObject beaconObject = new BeaconObject(sighting);
+                Log.i(TAG_GIMBAL, beaconObject.toString());
                 updateScanResults(sighting);
             }
         };
+        beaconManagerGimbal = new BeaconManager();
+    }
 
-        beaconManager = new BeaconManager();
+    private void setUpAltBeacon(){
+        beaconManagerAlt = org.altbeacon.beacon.BeaconManager.getInstanceForApplication(this);
+        beaconManagerAlt.getBeaconParsers().add(
+                new BeaconParser().setBeaconLayout(SettingsConstants.BEACON_LAYOUT));
+        beaconManagerAlt.bind(this);
+    }
 
+    @Override
+    public void onBeaconServiceConnect() {
+        beaconManagerAlt.setRangeNotifier(new RangeNotifier() {
+            @Override
+            public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
+                if (beacons.size() > 0) {
+                    for (Beacon beacon: beacons){
+                        BeaconObject beaconObject = new BeaconObject(beacon);
+                        Log.i(TAG_ALTBEACON, beaconObject.toString());
+                    }
+                }
+            }
+        });
+
+        try {
+            beaconManagerAlt.startRangingBeaconsInRegion(
+                    new Region("myRangingUniqueId", null, null, null));
+        } catch (RemoteException e) {    }
     }
 
     private void updateHeader(){
@@ -82,11 +137,11 @@ public class MainActivity extends ActionBarActivity {
             public void onClick(View v) {
                 Log.e("FAB", "Click " + scanning);
                 if (!scanning){
-                    beaconManager.addListener(beaconSightingListener);
-                    beaconManager.startListening();
+                    beaconManagerGimbal.addListener(beaconSightingListener);
+                    beaconManagerGimbal.startListening();
                 } else {
-                    beaconManager.removeListener(beaconSightingListener);
-                    beaconManager.stopListening();
+                    beaconManagerGimbal.removeListener(beaconSightingListener);
+                    beaconManagerGimbal.stopListening();
                 }
                 fab.setImageResource(
                         scanning ? R.drawable.ic_action_play : R.drawable.ic_action_stop);
@@ -245,6 +300,12 @@ public class MainActivity extends ActionBarActivity {
                 return true;
             case R.id.action_settings:
                 return true;
+            case R.id.action_clear_list:
+                groupItem.clear();
+                childItem.clear();
+                redrawList();
+                updateHeader();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -260,8 +321,10 @@ public class MainActivity extends ActionBarActivity {
                     public void onClick(DialogInterface dialog, int whichButton) {
                         RadioGroup rg = (RadioGroup) addView.findViewById(R.id.myRadioGroup);
                         int checkedIndex = rg.getCheckedRadioButtonId();
+
                         RadioButton b = (RadioButton) addView.findViewById(checkedIndex);
                         String sort_mode = b.getText().toString();
+
                         PreferenceManager.getDefaultSharedPreferences(getApplicationContext())
                                 .edit().putString(
                                 SettingsConstants.SORT_PREFERENCE, sort_mode).commit();

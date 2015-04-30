@@ -30,4 +30,5 @@ dependencies {
     compile 'com.android.support:appcompat-v7:22.1.1'
     compile 'com.google.android.gms:play-services:7.0.0'
     compile 'com.github.clans:fab:1.4.0'
+    compile 'org.altbeacon:android-beacon-library:2+'
 }

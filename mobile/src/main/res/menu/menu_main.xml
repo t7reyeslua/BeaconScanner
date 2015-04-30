@@ -6,6 +6,10 @@
           android:title="@string/action_settings"
           android:orderInCategory="100"
           app:showAsAction="never"/>
+      <item android:id="@+id/action_clear_list"
+            android:title="@string/action_clear_list"
+            android:orderInCategory="100"
+            app:showAsAction="never"/>
       <item android:id="@+id/action_sort"
             android:icon="@drawable/ic_action_sort"
             android:title="Sort"
