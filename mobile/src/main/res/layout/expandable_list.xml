@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+
+    <ExpandableListView
+            android:id="@+id/exp_list"
+            android:layout_width="fill_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="start"
+            android:background="#111"
+            android:choiceMode="singleChoice"
+            android:divider="#d711030c"
+            android:groupIndicator="@android:color/transparent"
+            android:dividerHeight="0dp" android:clickable="false"/>
+    <ListView
+            android:id="@+id/ap_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="start"
+            android:choiceMode="singleChoice"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="0dp" />
+
+    <!-- The "empty" view to show when there are no items in the "list" view defined above. -->
+    <TextView android:id="@android:id/empty"
+              style="?android:textAppearanceSmall"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_gravity="center"
+              android:padding="32dp"
+              android:fontFamily="sans-serif-light"
+              android:text="No result to be shown yet"
+              android:textColor="?android:textColorSecondary" />
+
+</LinearLayout>
