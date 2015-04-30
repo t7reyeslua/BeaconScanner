@@ -5,8 +5,13 @@
                 android:layout_height="match_parent"
                 tools:context=".MainActivity">
 
-
-    <include layout="@layout/expandable_list"/>
+    <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+        <include layout="@layout/list_summary_header"/>
+        <include layout="@layout/expandable_list"/>
+    </LinearLayout>
 
     <com.github.clans.fab.FloatingActionButton
             android:id="@+id/fab"

@@ -6,18 +6,26 @@ import com.gimbal.android.BeaconSighting;
 import com.gimbal.android.Gimbal;
 import com.github.clans.fab.FloatingActionButton;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ExpandableListView;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 
+import tudelft.beaconscanner.enums.SettingsConstants;
 import tudelft.beaconscanner.ui_helpers.ExpandableListAdapterBeacons;
 
 
@@ -29,6 +37,8 @@ public class MainActivity extends ActionBarActivity {
     private ArrayList<BeaconSighting> groupItem = new ArrayList<>();
     private ArrayList<Object> childItem = new ArrayList<>();
     private FloatingActionButton fab;
+    private TextView mTextViewScanningMode;
+    private TextView mTextViewBeaconsFound;
     private Boolean scanning = false;
 
     @Override
@@ -36,11 +46,14 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Gimbal.setApiKey(this.getApplication(), "0ef2df58-9665-49c9-b914-015e057751aa");
+        Gimbal.setApiKey(this.getApplication(), SettingsConstants.GIMBAL_API_KEY);
 
         mExpandableListBeacons = (ExpandableListView) findViewById(R.id.exp_list);
+        mTextViewScanningMode  = (TextView) findViewById(R.id.beaconMode);
+        mTextViewBeaconsFound  = (TextView) findViewById(R.id.beaconNum);
         fab = (FloatingActionButton) findViewById(R.id.fab);
         configureFab();
+        updateHeader();
 
         beaconSightingListener = new BeaconEventListener() {
             @Override
@@ -54,10 +67,16 @@ public class MainActivity extends ActionBarActivity {
 
     }
 
+    private void updateHeader(){
+        String scan_mode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString(
+                SettingsConstants.SCAN_MODE, SettingsConstants.MODE_GIMBAL);
+        int nBeacons = groupItem.size();
 
+        mTextViewScanningMode.setText(scan_mode);
+        mTextViewBeaconsFound.setText(String.valueOf(nBeacons));
+    }
 
     private void configureFab(){
-
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -102,6 +121,13 @@ public class MainActivity extends ActionBarActivity {
             childItem.add(child);
         }
         groupItem = new ArrayList<>(tempList);
+
+        sortList();
+        redrawList();
+        updateHeader();
+    }
+
+    private void redrawList(){
         ArrayList<Boolean>expanded = new ArrayList<>();
         for ( int i = 0; i < groupItem.size(); i++ ) {
             try {
@@ -115,7 +141,6 @@ public class MainActivity extends ActionBarActivity {
         View v = mExpandableListBeacons.getChildAt(0);
         int top = (v == null) ? 0 : v.getTop();
 
-        sortGimbalByRSSI();
         if (mExpandableListBeacons.getAdapter() == null) {
             mExpandableListAdapterBeacons = new ExpandableListAdapterBeacons(this, groupItem, childItem);
             mExpandableListBeacons.setAdapter(mExpandableListAdapterBeacons);
@@ -131,7 +156,16 @@ public class MainActivity extends ActionBarActivity {
             }
         }
         mExpandableListBeacons.setSelectionFromTop(index, top);
+    }
 
+    private void sortList(){
+        String sort_preference = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString(
+                SettingsConstants.SORT_PREFERENCE, SettingsConstants.SORT_RSSI);
+        if (sort_preference.equals(SettingsConstants.SORT_ALPHABETICALLY)) {
+            sortGimbalByName();
+        } else if (sort_preference.equals(SettingsConstants.SORT_RSSI)){
+            sortGimbalByRSSI();
+        }
     }
 
     private void sortGimbalByRSSI(){
@@ -193,8 +227,10 @@ public class MainActivity extends ActionBarActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
+        //getMenuInflater().inflate(R.menu.menu_main, menu);
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_main, menu);
+        return super.onCreateOptionsMenu(menu);
     }
 
     @Override
@@ -203,12 +239,42 @@ public class MainActivity extends ActionBarActivity {
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
+        switch (id) {
+            case R.id.action_sort:
+                showSortingPicker();
+                return true;
+            case R.id.action_settings:
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
         }
 
-        return super.onOptionsItemSelected(item);
+    }
+
+    private void showSortingPicker(){
+        //This is the layout that you are going to use in your alertdialog
+        final View addView = getLayoutInflater().inflate(R.layout.sort_picker, null);
+
+        new AlertDialog.Builder(this).setTitle("Sort Beacons").setView(addView)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        RadioGroup rg = (RadioGroup) addView.findViewById(R.id.myRadioGroup);
+                        int checkedIndex = rg.getCheckedRadioButtonId();
+                        RadioButton b = (RadioButton) addView.findViewById(checkedIndex);
+                        String sort_mode = b.getText().toString();
+                        PreferenceManager.getDefaultSharedPreferences(getApplicationContext())
+                                .edit().putString(
+                                SettingsConstants.SORT_PREFERENCE, sort_mode).commit();
+                        String sort_preference = PreferenceManager
+                                .getDefaultSharedPreferences(getApplicationContext()).getString(
+                                        SettingsConstants.SORT_PREFERENCE,
+                                        SettingsConstants.SORT_RSSI);
+                        Log.i("SortPicker",
+                                "CheckedIndex:" + sort_mode + " SortPreference Previous:"
+                                        + sort_preference);
+                        sortList();
+                        redrawList();
+                    }
+                }).setNegativeButton("Cancel", null).show();
     }
 }
