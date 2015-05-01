@@ -13,7 +13,7 @@ public class BeaconObject {
     private String beaconType;
 
     private String name;
-    private int RSSI;
+    private Integer RSSI;
 
     private String id;
     private String uuid;
@@ -93,11 +93,11 @@ public class BeaconObject {
         this.name = name;
     }
 
-    public int getRSSI() {
+    public Integer getRSSI() {
         return RSSI;
     }
 
-    public void setRSSI(int RSSI) {
+    public void setRSSI(Integer RSSI) {
         this.RSSI = RSSI;
     }
 

@@ -3,7 +3,10 @@ package tudelft.beaconscanner.ui_helpers;
 import com.gimbal.android.Beacon;
 import com.gimbal.android.BeaconSighting;
 
+import tudelft.beaconscanner.BeaconObject;
 import tudelft.beaconscanner.R;
+import tudelft.beaconscanner.enums.SettingsConstants;
+
 import android.app.Activity;
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -19,9 +22,9 @@ import java.util.Date;
 
 public class ExpandableListAdapterBeacons extends BaseExpandableListAdapter {
 
-    public ArrayList<BeaconSighting> tempChild;
-    public ArrayList<BeaconSighting> groupItem = new ArrayList<BeaconSighting>();
-    public ArrayList<Object> Childtem = new ArrayList<Object>();
+    public ArrayList<BeaconObject> tempChild;
+    public ArrayList<BeaconObject> groupItem = new ArrayList<>();
+    public ArrayList<Object> Childtem = new ArrayList<>();
     public LayoutInflater minflater;
     public Activity activity;
     private final Context context;
@@ -34,7 +37,7 @@ public class ExpandableListAdapterBeacons extends BaseExpandableListAdapter {
             GROUP_EXPANDED_STATE_SET // 1
     };
 
-    public ExpandableListAdapterBeacons(Context context, ArrayList<BeaconSighting> grList,
+    public ExpandableListAdapterBeacons(Context context, ArrayList<BeaconObject> grList,
             ArrayList<Object> childItem) {
         super();
         this.context = context;
@@ -60,7 +63,7 @@ public class ExpandableListAdapterBeacons extends BaseExpandableListAdapter {
     @Override
     public View getChildView(int groupPosition, final int childPosition,
             boolean isLastChild, View convertView, ViewGroup parent) {
-        tempChild = (ArrayList<BeaconSighting>) Childtem.get(groupPosition);
+        tempChild = (ArrayList<BeaconObject>) Childtem.get(groupPosition);
         TextView text = null;
         if (convertView == null)
         {
@@ -68,24 +71,25 @@ public class ExpandableListAdapterBeacons extends BaseExpandableListAdapter {
             convertView = layoutInflater.inflate(R.layout.list_subitem_scanned_beacon,parent,false);
         }
 
-        TextView twID = (TextView) convertView.findViewById(R.id.beaconId);
-        TextView twBatt = (TextView) convertView.findViewById(R.id.beaconBattery);
-        TextView twTemp = (TextView) convertView.findViewById(R.id.beaconTemperature);
-        TextView twDate = (TextView) convertView.findViewById(R.id.beaconDate);
+        TextView twField1 = (TextView) convertView.findViewById(R.id.beaconId);
+        TextView twField2 = (TextView) convertView.findViewById(R.id.beaconBattery);
+        TextView twField3 = (TextView) convertView.findViewById(R.id.beaconTemperature);
+        TextView twField4 = (TextView) convertView.findViewById(R.id.beaconDate);
 
-        Beacon beacon = tempChild.get(childPosition).getBeacon();
-        Date date = new Date(tempChild.get(childPosition).getTimeInMillis());
-        Double rssi = Double.valueOf(tempChild.get(childPosition).getRSSI());
-        Double accuracy = calculateAccuracy(-62, rssi);
-        String distance = String.format("%.2f", accuracy);
+        BeaconObject beacon = tempChild.get(childPosition);
+        String distance = String.format("%.2f", beacon.getDistance());
 
-
-        twID.setText(beacon.getIdentifier());
-        twBatt.setText(String.valueOf(beacon.getBatteryLevel()));
-        twBatt.setText(distance + "m");
-        twTemp.setText(String.valueOf((beacon.getTemperature() - 32)*5/9) + "°C");
-        SimpleDateFormat dt = new SimpleDateFormat("hh:mm:ss");
-        twDate.setText(dt.format(date));
+        if (beacon.getBeaconType().equals(SettingsConstants.TYPE_GIMBAL)) {
+            twField1.setText(beacon.getId());
+            twField2.setText(String.valueOf(beacon.getBatteryLevel()));
+            twField2.setText(distance + "m");
+            twField3.setText(String.valueOf(beacon.getTemperature() + "°C"));
+        } else if (beacon.getBeaconType().equals(SettingsConstants.TYPE_BEACON)) {
+            twField1.setText("Tx: " + beacon.getTxPower() + " dBm");
+            twField2.setText(distance + "m");
+            twField3.setText("Type: " + beacon.getBeaconTypeCode());
+        }
+        twField4.setText(beacon.getTimestamp());
 
         convertView.setTag(tempChild.get(childPosition));
         return convertView;
@@ -133,14 +137,14 @@ public class ExpandableListAdapterBeacons extends BaseExpandableListAdapter {
         }
 
 
-        String name = groupItem.get(groupPosition).getBeacon().getName();
+        String name = groupItem.get(groupPosition).getName();
         Integer rssi = groupItem.get(groupPosition).getRSSI();
 
         TextView twName = (TextView) convertView.findViewById(R.id.beaconName);
         TextView twRSSI = (TextView) convertView.findViewById(R.id.beaconRSSI);
 
         twName.setText(name);
-        twRSSI.setText(String.valueOf(rssi) + " dB");
+        twRSSI.setText(String.valueOf(rssi) + " dBm");
         convertView.setTag(groupItem.get(groupPosition));
 
         View ind = convertView.findViewById(R.id.explist_indicator);
@@ -182,18 +186,5 @@ public class ExpandableListAdapterBeacons extends BaseExpandableListAdapter {
         return true;
     }
 
-    private double calculateAccuracy(int txPower, Double rssi) {
-        if (rssi == 0) {
-            return -1.0; // if we cannot determine accuracy, return -1.
-        }
 
-        double ratio = rssi*1.0/txPower;
-        if (ratio < 1.0) {
-            return Math.pow(ratio,10);
-        }
-        else {
-            double accuracy =  (0.89976)*Math.pow(ratio,7.7095) + 0.111;
-            return accuracy;
-        }
-    }
 }

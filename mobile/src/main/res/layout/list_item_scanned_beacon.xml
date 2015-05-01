@@ -13,7 +13,7 @@
     <TextView
             android:id="@+id/beaconRSSI"
             android:layout_width="0dp"
-            android:layout_weight="40"
+            android:layout_weight="50"
             android:paddingRight="5dp"
             android:paddingLeft="10dp"
             android:textColor="#fff"

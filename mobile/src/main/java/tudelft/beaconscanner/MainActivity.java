@@ -47,7 +47,7 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
 
     private ExpandableListView mExpandableListBeacons;
     private ExpandableListAdapterBeacons mExpandableListAdapterBeacons;
-    private ArrayList<BeaconSighting> groupItem = new ArrayList<>();
+    private ArrayList<BeaconObject> groupItem = new ArrayList<>();
     private ArrayList<Object> childItem = new ArrayList<>();
 
     private FloatingActionButton fab;
@@ -70,7 +70,8 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        beaconManagerAlt.unbind(this);
+        stopAltBeacon();
+        stopGimbal();
     }
 
     private void configureGUIelements(){
@@ -89,7 +90,7 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
             public void onBeaconSighting(BeaconSighting sighting) {
                 BeaconObject beaconObject = new BeaconObject(sighting);
                 Log.i(TAG_GIMBAL, beaconObject.toString());
-                updateScanResults(sighting);
+                updateScanResults(beaconObject);
             }
         };
         beaconManagerGimbal = new BeaconManager();
@@ -99,8 +100,28 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
         beaconManagerAlt = org.altbeacon.beacon.BeaconManager.getInstanceForApplication(this);
         beaconManagerAlt.getBeaconParsers().add(
                 new BeaconParser().setBeaconLayout(SettingsConstants.BEACON_LAYOUT));
+    }
+
+    private void startGimbal(){
+        beaconManagerGimbal.addListener(beaconSightingListener);
+        beaconManagerGimbal.startListening();
+    }
+
+    private void startAltBeacon(){
         beaconManagerAlt.bind(this);
     }
+
+    private void stopGimbal(){
+        beaconManagerGimbal.stopListening();
+        beaconManagerGimbal.removeListener(beaconSightingListener);
+    }
+
+    private void stopAltBeacon(){
+        if (beaconManagerAlt.isBound(this)) {
+            beaconManagerAlt.unbind(this);
+        }
+    }
+
 
     @Override
     public void onBeaconServiceConnect() {
@@ -108,9 +129,16 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
             @Override
             public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
                 if (beacons.size() > 0) {
-                    for (Beacon beacon: beacons){
-                        BeaconObject beaconObject = new BeaconObject(beacon);
+                    for (Beacon beacon : beacons) {
+                        final BeaconObject beaconObject = new BeaconObject(beacon);
                         Log.i(TAG_ALTBEACON, beaconObject.toString());
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                updateScanResults(beaconObject);
+                            }
+                        });
+
                     }
                 }
             }
@@ -123,11 +151,21 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
     }
 
     private void updateHeader(){
-        String scan_mode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString(
-                SettingsConstants.SCAN_MODE, SettingsConstants.MODE_GIMBAL);
-        int nBeacons = groupItem.size();
+        if (!scanning) {
+            String scan_mode = PreferenceManager
+                    .getDefaultSharedPreferences(getApplicationContext()).getString(
+                            SettingsConstants.SCAN_MODE, SettingsConstants.MODE_ALL);
+            String previous_scan_mode = mTextViewScanningMode.getText().toString();
+            if (!scan_mode.equals(previous_scan_mode)) {
+                groupItem.clear();
+                childItem.clear();
+                redrawList();
+            }
 
-        mTextViewScanningMode.setText(scan_mode);
+            mTextViewScanningMode.setText(scan_mode);
+        }
+
+        int nBeacons = groupItem.size();
         mTextViewBeaconsFound.setText(String.valueOf(nBeacons));
     }
 
@@ -135,13 +173,30 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
                 Log.e("FAB", "Click " + scanning);
                 if (!scanning){
-                    beaconManagerGimbal.addListener(beaconSightingListener);
-                    beaconManagerGimbal.startListening();
+                    String scan_mode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString(
+                            SettingsConstants.SCAN_MODE, SettingsConstants.MODE_ALL);
+                    updateHeader();
+                    if (scan_mode.equals(SettingsConstants.MODE_ALL)) {
+                        startGimbal();
+                        startAltBeacon();
+                    } else if (scan_mode.equals(SettingsConstants.MODE_BEACONS)){
+                        startAltBeacon();
+                    } else if (scan_mode.equals(SettingsConstants.MODE_GIMBAL)){
+                        startGimbal();
+                    }
                 } else {
-                    beaconManagerGimbal.removeListener(beaconSightingListener);
-                    beaconManagerGimbal.stopListening();
+                    String scan_mode = mTextViewScanningMode.getText().toString();
+                    if (scan_mode.equals(SettingsConstants.MODE_ALL)) {
+                        stopGimbal();
+                        stopAltBeacon();
+                    } else if (scan_mode.equals(SettingsConstants.MODE_BEACONS)){
+                        stopAltBeacon();
+                    } else if (scan_mode.equals(SettingsConstants.MODE_GIMBAL)){
+                        stopGimbal();
+                    }
                 }
                 fab.setImageResource(
                         scanning ? R.drawable.ic_action_play : R.drawable.ic_action_stop);
@@ -152,16 +207,16 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
     }
 
 
-    private void updateScanResults(BeaconSighting sighting){
-        String beaconId = sighting.getBeacon().getIdentifier();
+    private void updateScanResults(BeaconObject beaconObject){
+        String beaconId = beaconObject.getId();
         childItem.clear();
         Boolean found  = false;
-        ArrayList<BeaconSighting> tempList = new ArrayList<>();
-        for (BeaconSighting bs : groupItem){
-            ArrayList<BeaconSighting> child = new ArrayList<>();
-            if (bs.getBeacon().getIdentifier().equals(beaconId)){
-                tempList.add(sighting);
-                child.add(sighting);
+        ArrayList<BeaconObject> tempList = new ArrayList<>();
+        for (BeaconObject bs : groupItem){
+            ArrayList<BeaconObject> child = new ArrayList<>();
+            if (bs.getId().equals(beaconId)){
+                tempList.add(beaconObject);
+                child.add(beaconObject);
                 found = true;
             } else {
                 tempList.add(bs);
@@ -170,9 +225,9 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
             childItem.add(child);
         }
         if (!found){
-            tempList.add(sighting);
-            ArrayList<BeaconSighting> child = new ArrayList<>();
-            child.add(sighting);
+            tempList.add(beaconObject);
+            ArrayList<BeaconObject> child = new ArrayList<>();
+            child.add(beaconObject);
             childItem.add(child);
         }
         groupItem = new ArrayList<>(tempList);
@@ -217,16 +272,16 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
         String sort_preference = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString(
                 SettingsConstants.SORT_PREFERENCE, SettingsConstants.SORT_RSSI);
         if (sort_preference.equals(SettingsConstants.SORT_ALPHABETICALLY)) {
-            sortGimbalByName();
+            sortByName();
         } else if (sort_preference.equals(SettingsConstants.SORT_RSSI)){
-            sortGimbalByRSSI();
+            sortByRSSI();
         }
     }
 
-    private void sortGimbalByRSSI(){
-        Collections.sort(groupItem, new Comparator<BeaconSighting>() {
+    private void sortByRSSI(){
+        Collections.sort(groupItem, new Comparator<BeaconObject>() {
             @Override
-            public int compare(BeaconSighting item1, BeaconSighting item2) {
+            public int compare(BeaconObject item1, BeaconObject item2) {
 
                 return item2.getRSSI().compareTo(item1.getRSSI());
             }
@@ -235,8 +290,8 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
         Collections.sort(childItem, new Comparator<Object>() {
             @Override
             public int compare(Object item1, Object item2) {
-                BeaconSighting i1 = ((ArrayList<BeaconSighting>)item1).get(0);
-                BeaconSighting i2 = ((ArrayList<BeaconSighting>)item2).get(0);
+                BeaconObject i1 = ((ArrayList<BeaconObject>)item1).get(0);
+                BeaconObject i2 = ((ArrayList<BeaconObject>)item2).get(0);
 
                 return i2.getRSSI().compareTo(i1.getRSSI());
             }
@@ -244,22 +299,22 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
     }
 
 
-    private void sortGimbalByName(){
-        Collections.sort(groupItem, new Comparator<BeaconSighting>() {
+    private void sortByName(){
+        Collections.sort(groupItem, new Comparator<BeaconObject>() {
             @Override
-            public int compare(BeaconSighting item1, BeaconSighting item2) {
+            public int compare(BeaconObject item1, BeaconObject item2) {
 
-                return item1.getBeacon().getName().compareTo(item2.getBeacon().getName());
+                return item1.getName().compareTo(item2.getName());
             }
         });
 
         Collections.sort(childItem, new Comparator<Object>() {
             @Override
             public int compare(Object item1, Object item2) {
-                BeaconSighting i1 = ((ArrayList<BeaconSighting>)item1).get(0);
-                BeaconSighting i2 = ((ArrayList<BeaconSighting>)item2).get(0);
+                BeaconObject i1 = ((ArrayList<BeaconObject>)item1).get(0);
+                BeaconObject i2 = ((ArrayList<BeaconObject>)item2).get(0);
 
-                return i1.getBeacon().getName().compareTo(i2.getBeacon().getName());
+                return i1.getName().compareTo(i2.getName());
             }
         });
     }
@@ -306,6 +361,9 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
                 redrawList();
                 updateHeader();
                 return true;
+            case R.id.action_scan_mode:
+                showScanningPicker();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -315,11 +373,15 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
     private void showSortingPicker(){
         //This is the layout that you are going to use in your alertdialog
         final View addView = getLayoutInflater().inflate(R.layout.sort_picker, null);
+        final RadioGroup rg = (RadioGroup) addView.findViewById(R.id.myRadioGroup);
+        final String sort_preference = PreferenceManager
+                .getDefaultSharedPreferences(getApplicationContext()).getString(
+                        SettingsConstants.SORT_PREFERENCE,
+                        SettingsConstants.SORT_RSSI);
 
         new AlertDialog.Builder(this).setTitle("Sort Beacons").setView(addView)
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
-                        RadioGroup rg = (RadioGroup) addView.findViewById(R.id.myRadioGroup);
                         int checkedIndex = rg.getCheckedRadioButtonId();
 
                         RadioButton b = (RadioButton) addView.findViewById(checkedIndex);
@@ -328,15 +390,36 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
                         PreferenceManager.getDefaultSharedPreferences(getApplicationContext())
                                 .edit().putString(
                                 SettingsConstants.SORT_PREFERENCE, sort_mode).commit();
-                        String sort_preference = PreferenceManager
-                                .getDefaultSharedPreferences(getApplicationContext()).getString(
-                                        SettingsConstants.SORT_PREFERENCE,
-                                        SettingsConstants.SORT_RSSI);
-                        Log.i("SortPicker",
-                                "CheckedIndex:" + sort_mode + " SortPreference Previous:"
-                                        + sort_preference);
+                        Log.i("SortPicker", "CheckedIndex:" + sort_mode + " SortPreference Previous:" + sort_preference);
                         sortList();
                         redrawList();
+                    }
+                }).setNegativeButton("Cancel", null).show();
+    }
+
+
+    private void showScanningPicker(){
+        //This is the layout that you are going to use in your alertdialog
+        final View addView = getLayoutInflater().inflate(R.layout.scan_mode_picker, null);
+        final RadioGroup rg = (RadioGroup) addView.findViewById(R.id.myRadioGroup);
+        final String scan_preference = PreferenceManager
+                .getDefaultSharedPreferences(getApplicationContext()).getString(
+                        SettingsConstants.SCAN_MODE,
+                        SettingsConstants.MODE_ALL);
+
+        new AlertDialog.Builder(this).setTitle("Scan mode").setView(addView)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        int checkedIndex = rg.getCheckedRadioButtonId();
+
+                        RadioButton b = (RadioButton) addView.findViewById(checkedIndex);
+                        String scan_mode = b.getText().toString();
+
+                        PreferenceManager.getDefaultSharedPreferences(getApplicationContext())
+                                .edit().putString(
+                                SettingsConstants.SCAN_MODE, scan_mode).commit();
+                        Log.i("SortPicker", "CheckedIndex:" + scan_mode + " SortPreference Previous:" + scan_preference);
+
                     }
                 }).setNegativeButton("Cancel", null).show();
     }

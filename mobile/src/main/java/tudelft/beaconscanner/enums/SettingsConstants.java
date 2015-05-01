@@ -9,6 +9,7 @@ public class SettingsConstants {
     public static String SORT_ALPHABETICALLY = "Alphabetically";
 
     public static String SCAN_MODE = "scan_mode";
+    public static String MODE_ALL = "All";
     public static String MODE_GIMBAL = "Gimbal";
     public static String MODE_BEACONS = "AltBeacon";
 
