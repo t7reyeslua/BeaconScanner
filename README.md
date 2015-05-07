@@ -7,3 +7,4 @@ Scanner for Gimbal Beacons
 2. iBeacon mode - uses Android Beacon Library (https://github.com/AltBeacon/android-beacon-library)
 
 [Wear]
+* To be implemented
