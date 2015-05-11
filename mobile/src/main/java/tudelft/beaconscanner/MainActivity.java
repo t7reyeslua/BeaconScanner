@@ -28,10 +28,12 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 
 import tudelft.beaconscanner.enums.SettingsConstants;
 import tudelft.beaconscanner.ui_helpers.ExpandableListAdapterBeacons;
@@ -40,6 +42,7 @@ import tudelft.beaconscanner.ui_helpers.ExpandableListAdapterBeacons;
 public class MainActivity extends ActionBarActivity implements BeaconConsumer{
     protected static final String TAG_ALTBEACON = "AltBeacon";
     protected static final String TAG_GIMBAL = "Gimbal";
+    protected static final String TAG = "BeaconScanner";
 
     private BeaconEventListener beaconSightingListener;
     private BeaconManager beaconManagerGimbal;
@@ -175,16 +178,17 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
             public void onClick(View v) {
 
                 Log.e("FAB", "Click " + scanning);
-                if (!scanning){
-                    String scan_mode = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).getString(
-                            SettingsConstants.SCAN_MODE, SettingsConstants.MODE_ALL);
+                if (!scanning) {
+                    String scan_mode = PreferenceManager
+                            .getDefaultSharedPreferences(getApplicationContext()).getString(
+                                    SettingsConstants.SCAN_MODE, SettingsConstants.MODE_ALL);
                     updateHeader();
                     if (scan_mode.equals(SettingsConstants.MODE_ALL)) {
                         startGimbal();
                         startAltBeacon();
-                    } else if (scan_mode.equals(SettingsConstants.MODE_BEACONS)){
+                    } else if (scan_mode.equals(SettingsConstants.MODE_BEACONS)) {
                         startAltBeacon();
-                    } else if (scan_mode.equals(SettingsConstants.MODE_GIMBAL)){
+                    } else if (scan_mode.equals(SettingsConstants.MODE_GIMBAL)) {
                         startGimbal();
                     }
                 } else {
@@ -192,9 +196,9 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
                     if (scan_mode.equals(SettingsConstants.MODE_ALL)) {
                         stopGimbal();
                         stopAltBeacon();
-                    } else if (scan_mode.equals(SettingsConstants.MODE_BEACONS)){
+                    } else if (scan_mode.equals(SettingsConstants.MODE_BEACONS)) {
                         stopAltBeacon();
-                    } else if (scan_mode.equals(SettingsConstants.MODE_GIMBAL)){
+                    } else if (scan_mode.equals(SettingsConstants.MODE_GIMBAL)) {
                         stopGimbal();
                     }
                 }
@@ -319,6 +323,64 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
         });
     }
 
+    private void removeOldBeacons(int secondsSinceLastSeen){
+
+        SimpleDateFormat dt = new SimpleDateFormat("hh:mm:ss");
+        Date date = new Date();
+        long msNow = 0;
+
+        try {
+            Date dateNow = dt.parse(dt.format(date));
+            msNow = dateNow.getTime();
+        } catch (Exception e){
+            Log.e(TAG, e.toString());
+        }
+
+        ArrayList<BeaconObject> tempList = new ArrayList<>();
+        for (BeaconObject bs : groupItem){
+            try {
+                Date dateBeacon = dt.parse(bs.getTimestamp());
+                long msBeacon = dateBeacon.getTime();
+                long msDiff = msNow - msBeacon;
+                if (msDiff < secondsSinceLastSeen * 1000){
+                    tempList.add(bs);
+                }
+            } catch (Exception e){
+                Log.e(TAG, e.toString());
+            }
+        }
+        groupItem = new ArrayList<>(tempList);
+
+    }
+
+    private int countBeacons(int secondsSinceLastSeen){
+        int n = 0;
+        SimpleDateFormat dt = new SimpleDateFormat("hh:mm:ss");
+        Date date = new Date();
+        long msNow = 0;
+
+        try {
+            Date dateNow = dt.parse(dt.format(date));
+            msNow = dateNow.getTime();
+        } catch (Exception e){
+            Log.e(TAG, e.toString());
+        }
+
+        for (BeaconObject bObj : groupItem){
+            try {
+                Date dateBeacon = dt.parse(bObj.getTimestamp());
+                long msBeacon = dateBeacon.getTime();
+                long msDiff = msNow - msBeacon;
+                Log.i(TAG, "Diff: " + String.valueOf(msNow) + "-" + String.valueOf(msBeacon) + "=" + String.valueOf(msDiff));
+                if (msDiff < secondsSinceLastSeen * 1000){
+                    n++;
+                }
+            } catch (Exception e){
+                Log.e(TAG, e.toString());
+            }
+        }
+        return n;
+    }
 
     private class ExpDrawerGroupClickListener implements ExpandableListView.OnGroupClickListener {
         @Override
@@ -379,6 +441,7 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
                         SettingsConstants.SORT_PREFERENCE,
                         SettingsConstants.SORT_RSSI);
 
+        //TODO Select radio button that matches stored preference
         new AlertDialog.Builder(this).setTitle("Sort Beacons").setView(addView)
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
@@ -407,6 +470,7 @@ public class MainActivity extends ActionBarActivity implements BeaconConsumer{
                         SettingsConstants.SCAN_MODE,
                         SettingsConstants.MODE_ALL);
 
+        //TODO Select radio button that matches stored preference
         new AlertDialog.Builder(this).setTitle("Scan mode").setView(addView)
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
